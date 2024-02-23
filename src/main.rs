@@ -12,7 +12,7 @@ use md5::Context;
 fn to_hex(data: &[u8]) -> String {
     let mut out = String::new();
     for x in data {
-        out += &String::from(format!("{:x}", x));
+        out += &format!("{:x}", x);
     }
     out
 }
@@ -58,7 +58,7 @@ impl DigestAlgorithm for Md5Algorithm {
     }
 
     fn finalize(&mut self) -> String{
-        to_hex(&self.context.clone().compute().as_slice())
+        to_hex(self.context.clone().compute().as_slice())
     }
 }
 
@@ -117,7 +117,7 @@ fn main(){
         },
         true => None
     };
-    
+
     for x in WalkDir::new(args.path)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -146,7 +146,7 @@ fn main(){
     };
 
     for file_path in files{
-        if let Some(filename_str) = file_path.file_name().expect("REASON").to_str(){
+        if let Some(filename_str) = file_path.file_name().expect("Illegal file name").to_str(){
             if let Some(ref x) = bar {
                 x.set_message(format!("File: {}", filename_str));
             }
