@@ -1,28 +1,12 @@
 use clap::Parser;
-use clap::ValueEnum;
 use std::path::PathBuf;
 use std::fs::File;
 use indicatif::ProgressBar;
 use walkdir::WalkDir;
-use sha2::{Sha256, Sha512, Digest};
 use std::io::Read;
 use indicatif::ProgressStyle;
-use md5::Context;
 
-fn to_hex(data: &[u8]) -> String {
-    let mut out = String::new();
-    for x in data {
-        out += &format!("{:x}", x);
-    }
-    out
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum Algorithm {
-    Sha256,
-    Sha512,
-    Md5
-}
+mod algorithms;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -30,80 +14,8 @@ struct Cli {
     path: PathBuf,
     #[arg(long, short, default_value_t=false)]
     quiet: bool,
-    #[arg(long, short, value_enum, default_value_t=Algorithm::Sha256)]
-    algorithm: Algorithm,
-}
-
-
-pub trait DigestAlgorithm {
-    fn finalize(&mut self) -> String;
-    fn update(&mut self, data: &[u8]);
-}
-
-struct Sha256Algorithm{
-    hasher: Sha256,
-}
-
-struct Sha512Algorithm{
-    hasher: Sha512,
-}
-
-struct Md5Algorithm{
-    context: Context,
-}
-
-impl DigestAlgorithm for Md5Algorithm {
-    fn update(&mut self, data: &[u8]){
-        self.context.consume(data);
-    }
-
-    fn finalize(&mut self) -> String{
-        to_hex(self.context.clone().compute().as_slice())
-    }
-}
-
-impl DigestAlgorithm for Sha256Algorithm {
-    fn update(&mut self, data: &[u8]){
-        self.hasher.update(data);
-    }
-
-    fn finalize(&mut self) -> String{
-        to_hex(&self.hasher.clone().finalize())
-    }
-}
-
-impl DigestAlgorithm for Sha512Algorithm {
-    fn update(&mut self, data: &[u8]){
-        self.hasher.update(data);
-    }
-
-    fn finalize(&mut self) -> String{
-        to_hex(&self.hasher.clone().finalize())
-    }
-}
-
-impl Sha256Algorithm {
-    fn new() -> Self {
-        Sha256Algorithm {
-            hasher: Sha256::new()
-        }
-    }
-}
-
-impl Sha512Algorithm {
-    fn new() -> Self {
-        Sha512Algorithm {
-            hasher: Sha512::new()
-        }
-    }
-}
-
-impl Md5Algorithm {
-    fn new() -> Self {
-        Md5Algorithm {
-            context: Context::new()
-        }
-    }
+    #[arg(long, short, value_enum, default_value_t=algorithms::Algorithm::Sha256)]
+    algorithm: algorithms::Algorithm,
 }
 
 fn main(){
@@ -128,10 +40,12 @@ fn main(){
         x.finish();
     }
 
-    let mut hasher: Box<dyn DigestAlgorithm> = match args.algorithm {
-        Algorithm::Sha256 => Box::new(Sha256Algorithm::new()),
-        Algorithm::Sha512 => Box::new(Sha512Algorithm::new()),
-        Algorithm::Md5 => Box::new(Md5Algorithm::new()),
+    files.sort();
+
+    let mut hasher: Box<dyn algorithms::DigestAlgorithm> = match args.algorithm {
+        algorithms::Algorithm::Sha256 => Box::new(algorithms::Sha256Algorithm::new()),
+        algorithms::Algorithm::Sha512 => Box::new(algorithms::Sha512Algorithm::new()),
+        algorithms::Algorithm::Md5 => Box::new(algorithms::Md5Algorithm::new()),
     };
 
     let bar: Option<ProgressBar> = match args.quiet {
